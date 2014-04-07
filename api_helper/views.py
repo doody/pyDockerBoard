@@ -13,7 +13,7 @@ def fetch_git_project(request):
     update_record, created = UpdateRecord.objects.get_or_create(provider="GITLAB")
     duration = timezone.now().replace(tzinfo=None) - update_record.last_update.replace(tzinfo=None)
 
-    force_update = False
+    force_update = False or created
     if 'force_update' in request.GET:
         force_update = True
 

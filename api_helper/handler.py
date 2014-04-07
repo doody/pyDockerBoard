@@ -153,67 +153,70 @@ def get_gitlab_projects():
         return r.text
 
     for project in r.json():
-        g = GITGroup.objects.get(id=project['namespace']['id'])
-        g.description = project['namespace']['description']
-        g.updated_at = project['namespace']['updated_at']
-        g.save()
+        try:
+            g = GITGroup.objects.get(id=project['namespace']['id'])
+            g.description = project['namespace']['description']
+            g.updated_at = project['namespace']['updated_at']
+            g.save()
 
-        p = GITProject(
-            id=project['id'],
-            description=project['description'],
-            web_url=project['web_url'],
-            name=project['name'],
-            last_activity_at=project['last_activity_at'],
-            group=g
-        )
-        p.save()
-
-        # Fetch git branch
-        r = requests.get(settings.GIT_LAB_API_URL + '/projects/' + str(p.id) + '/repository/branches',
-                         headers=headers, verify=False)
-
-        if r.status_code != 200:
-            return r.text
-
-        for branch in r.json():
-            try:
-                author = User.objects.get(email=branch['commit']['author']['email'])
-            except User.DoesNotExist:
-                author = User(
-                    username=branch['commit']['author']['name'],
-                    email=branch['commit']['author']['email']
-                )
-                author.save()
-
-            try:
-                committer = User.objects.get(email=branch['commit']['committer']['email'])
-            except User.DoesNotExist:
-                committer = User(
-                    username=branch['commit']['committer']['name'],
-                    email=branch['commit']['committer']['email']
-                )
-                committer.save()
-
-            c = GITCommit(
-                id=branch['commit']['id'],
-                message=branch['commit']['message'],
-                author=author,
-                committer=committer,
-                authored_date=branch['commit']['authored_date'],
-                committed_date=branch['commit']['committed_date'],
+            p = GITProject(
+                id=project['id'],
+                description=project['description'],
+                web_url=project['web_url'],
+                name=project['name'],
+                last_activity_at=project['last_activity_at'],
+                group=g
             )
-            c.save()
+            p.save()
 
-            try:
-                b = GITBranch.objects.get(project=p, name=branch['name'])
-            except GITBranch.DoesNotExist:
-                b = GITBranch(
-                    project=p,
-                    name=branch['name'],
-                    is_protected=branch['protected'],
-                    last_commit=c
-                )
-                b.save()
+            # Fetch git branch
+            r = requests.get(settings.GIT_LAB_API_URL + '/projects/' + str(p.id) + '/repository/branches',
+                             headers=headers, verify=False)
+
+            if r.status_code != 200:
+                return r.text
+
+            for branch in r.json():
+                try:
+                    author = User.objects.get(email=branch['commit']['author']['email'])
+                except User.DoesNotExist:
+                    author = User(
+                        username=branch['commit']['author']['name'],
+                        email=branch['commit']['author']['email']
+                    )
+                    author.save()
+
+                try:
+                    committer = User.objects.get(email=branch['commit']['committer']['email'])
+                except User.DoesNotExist:
+                    committer = User(
+                        username=branch['commit']['committer']['name'],
+                        email=branch['commit']['committer']['email']
+                    )
+                    committer.save()
+
+                c = GITCommit(
+                    id=branch['commit']['id'],
+                    message=branch['commit']['message'],
+                    author=author,
+                    committer=committer,
+                    authored_date=branch['commit']['authored_date'],
+                    committed_date=branch['commit']['committed_date'],
+                    )
+                c.save()
+
+                try:
+                    b = GITBranch.objects.get(project=p, name=branch['name'])
+                except GITBranch.DoesNotExist:
+                    b = GITBranch(
+                        project=p,
+                        name=branch['name'],
+                        is_protected=branch['protected'],
+                        last_commit=c
+                    )
+                    b.save()
+        except GITGroup.DoesNotExist:
+            continue
 
 
 def create_container(name=None):
