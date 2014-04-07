@@ -1,0 +1,15 @@
+{% extends "navbar.html" %}
+
+{% block sidebar %}
+    <ul class="nav nav-sidebar">
+        {% for p in project_list %}
+            {% if p == project %}
+                <li class="active"><a href="{% url 'dashboard.views.view_group_project' p.group.name p.name %}"
+                                      class="">{{ p.name }}</a></li>
+            {% else %}
+                <li><a href="{% url 'dashboard.views.view_group_project' p.group.name p.name %}"
+                       class="">{{ p.name }}</a></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endblock %}

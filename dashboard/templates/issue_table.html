@@ -1,0 +1,90 @@
+{% for issue in resolved_issues %}
+    <tr>
+        <td>
+            {% if issue.git_branch %}
+                <div id="{{ issue.id }}-btn">
+                    {% with issue.git_branch.dkcontainer_set.all|first as container %}
+                        {% if container and container.is_running %}
+                            <div class="btn-group">
+                                <button id="{{ issue.id }}" type="button"
+                                        class="btn btn-success btn-xs dropdown-toggle"
+                                        data-toggle="dropdown">
+                                    Running <span class="caret"></span></button>
+                                <ul class="dropdown-menu" role="menu">
+                                    <li><a class="stop-btn" id="{{ issue.id }}" href="#">Stop</a></li>
+                                    <li><a class="open-btn" id="{{ issue.id }}"
+                                           href="http://192.168.6.153:{{ container.deploy_port }}/csis"
+                                           target="_blank">Open</a></li>
+                                    <li class="divider"></li>
+                                    <li><a class="delete-btn" id="{{ issue.id }}" href="#">Delete</a></li>
+                                </ul>
+                            </div>
+                        {% else %}
+                            <div class="btn-group">
+                                <button id="{{ issue.id }}" type="button"
+                                        class="btn btn-danger btn-xs dropdown-toggle"
+                                        data-toggle="dropdown">
+                                    Stopped <span class="caret"></span></button>
+                                <ul class="dropdown-menu" role="menu">
+                                    <li><a class="start-btn" id="{{ issue.id }}" href="#">Start</a></li>
+                                    <li class="divider"></li>
+                                    <li><a class="delete-btn" id="{{ issue.id }}" href="#">Delete</a></li>
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            {% else %}
+                <span class="label label-default">Commit First</span>
+            {% endif %}
+        </td>
+        <td><a href="https://redmine.binfo.org.tw/issues/{{ issue.id }}" target="_blank">t{{ issue.id }}</a>
+        </td>
+        <td>
+            {% if issue.status.name|upper == "RESOLVED" %}
+                <span class="label label-success">R</span>
+            {% else %}
+                <span class="label label-warning">F</span>
+            {% endif %}
+            {{ issue.subject }}
+        </td>
+        <td>
+            {% if issue.git_branch %}
+                <a class="label label-info" target="_blank"
+                   href="https://staging.cims.ym.edu.tw:3061/{{ issue.git_branch.project.group.name }}/{{ issue.git_branch.project.name }}/commit/{{ issue.git_branch.last_commit.id }}">{{ issue.git_branch.last_commit.committed_date|date:"Y-m-d H:i" }}</a>
+            {% else %}
+                <span class="label label-default">No commit</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if issue.git_branch %}
+                <div class="btn-group">
+                    {% if issue.test_result|upper == "PASS" %}
+                        <button id="{{ issue.id }}" type="button"
+                                class="btn btn-success btn-xs dropdown-toggle" data-toggle="dropdown">
+                            {{ issue.test_date|date:"Y-m-d H:i" }} <span class="caret"></span></button>
+                    {% elif issue.test_result|upper == "FAILED" %}
+                        <button id="{{ issue.id }}" type="button"
+                                class="btn btn-danger btn-xs dropdown-toggle" data-toggle="dropdown">
+                            {{ issue.test_date|date:"Y-m-d H:i" }} <span class="caret"></span></button>
+                    {% else %}
+                        <button id="{{ issue.id }}" type="button"
+                                class="btn btn-warning btn-xs dropdown-toggle" data-toggle="dropdown">
+                            Not Test Yet <span class="caret"></span></button>
+                    {% endif %}
+                    <ul class="dropdown-menu" role="menu">
+                        <li><a class="test-pass-btn" id="{{ issue.id }}" href="#">Pass</a></li>
+                        <li><a class="test-failed-btn" id="{{ issue.id }}" href="#">Failed</a></li>
+                    </ul>
+                </div>
+            {% else %}
+                <span class="label label-default">Nothing to test</span>
+            {% endif %}
+
+        </td>
+    </tr>
+{% empty %}
+    <tr>
+        <td colspan="6" style="text-align: center">Empty</td>
+    </tr>
+{% endfor %}

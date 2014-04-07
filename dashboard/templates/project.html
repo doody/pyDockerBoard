@@ -1,0 +1,269 @@
+{% extends "sidebar.html" %}
+{% load staticfiles %}
+
+{% block content %}
+    <div class="page-header">
+        <h1 class="">{{ project.name }}</h1>
+    </div>
+    <div class="panel panel-info">
+        <!-- Default panel contents -->
+        <div class="panel-heading">Production Status</div>
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th style="width : 10%">Status</th>
+                <th style="width : 10%">Branch</th>
+                <th style="width : 10%">Version</th>
+                <th style="width : 20%">Last Commit</th>
+                <th style="width : 40%">Commit Message</th>
+                <th style="width : 10%">Test Result</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for branch in production_status %}
+                <tr>
+                    <td><span class="label label-success">Running</span></td>
+                    <td class="">{{ branch.name|capfirst }}</td>
+                    <td>2.25.1</td>
+                    <td class="">{{ branch.last_commit.committed_date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ branch.last_commit.message }}</td>
+                    <td><span class="label label-success">2014-01-01 18:00</span></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="panel panel-success">
+        <!-- Default panel contents -->
+        <div class="panel-heading">Resolved Ticket</div>
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th style="width : 10%">Container</th>
+                <th style="width : 10%">Issue</th>
+                <th style="width : 60%">Description</th>
+                <th style="width : 10%">Last Commit</th>
+                <th style="width : 10%">Test Result</th>
+            </tr>
+            </thead>
+            <tbody id="tbody-holder">
+                <tr>
+                    <td colspan="5">
+                        <div class="spinner spinner-center">
+                            <div class="rect1"></div>
+                            <div class="rect2"></div>
+                            <div class="rect3"></div>
+                            <div class="rect4"></div>
+                            <div class="rect5"></div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        $(document).ready(function(){
+            $('#tbody-holder').load('{% url 'dashboard.views.view_issue_table' group.name project.name %}', function(response, status, xhr){
+                if ( status == "error" ) {
+                    show_alert(xhr.statusText, "danger")
+                }
+            });
+        });
+
+        var running_button = function (issueId, port, entry_point) {
+            $('#' + issueId + '-btn').html(
+                    '<div class="btn-group">' +
+                            '<button id="' + issueId + '" type="button" class="btn btn-success btn-xs dropdown-toggle" data-toggle="dropdown">' +
+                            'Running <span class="caret"></span></button>' +
+                            '<ul class="dropdown-menu" role="menu">' +
+                            '<li><a class="stop-btn" id="' + issueId + '" href="#">Stop</a></li>' +
+                            '<li><a class="open-btn" id="' + issueId + '" href="http://192.168.6.153:' + port + '/' + entry_point + '/" target="_blank">Open</a></li>' +
+                            '<li class="divider"></li>' +
+                            '<li><a class="delete-btn" id="' + issueId + '" href="#">Delete</a></li>' +
+                            '</ul>' +
+                            '</div>');
+        };
+
+        var stopped_button = function (issueId) {
+            $('#' + issueId + '-btn').html(
+                    '<div class="btn-group">' +
+                            '<button id="' + issueId + '" type="button" class="btn btn-danger btn-xs dropdown-toggle" data-toggle="dropdown">' +
+                            'Stopped <span class="caret"></span></button>' +
+                            '<ul class="dropdown-menu" role="menu">' +
+                            '<li><a class="start-btn" id="' + issueId + '" href="#">Start</a></li>' +
+                            '<li class="divider"></li>' +
+                            '<li><a class="delete-btn" id="' + issueId + '" href="#">Delete</a></li>' +
+                            '</ul>' +
+                            '</div>');
+        };
+
+        var show_alert = function (message, alerttype) {
+            $.bootstrapGrowl(message, {
+                type: alerttype,
+                align: 'center',
+                width: 'auto',
+                offset: {from: 'bottom', amount: 20},
+                allow_dismiss: false
+            });
+        };
+
+        var check_status = function (issueId, originalButton) {
+            var url = '{% url 'dashboard.api.check_deploy_status' 0 %}'.replace(0, issueId);
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function (data) {
+                    if (data.commit == undefined) {
+                        // Check status every 5 seconds
+                        setTimeout(function () {
+                            check_status(issueId, originalButton)
+                        }, 5000);
+                    } else {
+                        running_button(issueId, data.deploy_port, data.entry_point);
+                        var message = 't' + issueId + ' is running, you can open <a href="http://192.168.6.153:' + data.deploy_port + '/' + data.entry_point + '" target="_blank">here</a>';
+                        $.bootstrapGrowl(message, {
+                            type: "info",
+                            align: 'center',
+                            width: 'auto',
+                            offset: {from: 'bottom', amount: 20},
+                            delay: 6000,
+                            allow_dismiss: false
+                        });
+                    }
+                },
+                timeout: 1000 * 60 * 5,
+                error: function (xhr) {
+                    show_alert(xhr.responseJSON.message, "danger");
+                    $('#' + issueId + '-btn').html(originalButton);
+                }
+            })
+        };
+
+        $(document).on('click', '.start-btn', function (e) {
+            e.preventDefault();
+            // Get issue id
+            var issueId = $(this).attr('id');
+            var url = '{% url 'dashboard.api.start_container' 0 %}'.replace(0, issueId);
+            var originalButton = $('#' + issueId + '-btn').html();
+            $('#' + issueId + '-btn').html('<div class="spinner">' +
+                    '<div class="rect1"></div>' +
+                    '<div class="rect2"></div>' +
+                    '<div class="rect3"></div>' +
+                    '<div class="rect4"></div>' +
+                    '<div class="rect5"></div>' +
+                    '</div>');
+            // run ajax request
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function () {
+                    check_status(issueId, originalButton)
+                },
+                error: function (xhr) {
+                    show_alert(xhr.responseJSON.message, "danger");
+                    $('#' + issueId + '-btn').html(originalButton);
+                }
+            });
+        });
+
+        $(document).on('click', '.stop-btn', function (e) {
+            e.preventDefault();
+            // Get issue id
+            var issueId = $(this).attr('id');
+            var url = '{% url 'dashboard.api.stop_container' 0 %}'.replace(0, issueId);
+            var originalButton = $('#' + issueId + '-btn').html();
+            $('#' + issueId + '-btn').html('<div class="spinner">' +
+                    '<div class="rect1"></div>' +
+                    '<div class="rect2"></div>' +
+                    '<div class="rect3"></div>' +
+                    '<div class="rect4"></div>' +
+                    '<div class="rect5"></div>' +
+                    '</div>');
+            // run ajax request
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function () {
+                    stopped_button(issueId);
+                },
+                timeout: 1000 * 60 * 5,
+                error: function (xhr) {
+                    show_alert(xhr.responseJSON.message, "danger");
+                    $('#' + issueId + '-btn').html(originalButton);
+                }
+            });
+        });
+
+        $(document).on('click', '.delete-btn', function (e) {
+            e.preventDefault();
+            // Get issue id
+            var issueId = $(this).attr('id');
+            var url = '{% url 'dashboard.api.delete_container' 0 %}'.replace(0, issueId);
+            var originalButton = $('#' + issueId + '-btn').html();
+
+            // run ajax request
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function () {
+                    show_alert("Container is deleted", "info")
+                },
+                timeout: 1000 * 60 * 5,
+                error: function (xhr) {
+                    show_alert(xhr.responseJSON.message, "danger");
+                    $('#' + issueId + '-btn').html(originalButton);
+                }
+            });
+        });
+
+        $(document).on('click', '.test-pass-btn', function (e) {
+            e.preventDefault();
+            // Get issue id
+            var issueId = $(this).attr('id');
+            var url = '{% url 'dashboard.api.change_test_result' 0 'pass'%}'.replace(0, issueId);
+
+            // run ajax request
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function () {
+                    location.reload();
+                },
+                timeout: 1000 * 60 * 5,
+                error: function (xhr) {
+                    location.reload();
+                }
+            });
+        });
+
+
+        $(document).on('click', '.test-failed-btn', function (e) {
+            e.preventDefault();
+            // Get issue id
+            var issueId = $(this).attr('id');
+            var url = '{% url 'dashboard.api.change_test_result' 0 'failed'%}'.replace(0, issueId);
+
+            // run ajax request
+            $.ajax({
+                type: "GET",
+                dataType: "text json",
+                url: url,
+                success: function () {
+                    location.reload();
+                },
+                timeout: 1000 * 60 * 5,
+                error: function (xhr) {
+                    location.reload();
+                }
+            });
+        });
+
+    </script>
+
+{% endblock %}
